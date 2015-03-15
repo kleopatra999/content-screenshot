@@ -49,8 +49,8 @@ def runContentShell(contentShell, inputPath, additionalFlags):
                          stderr = subprocess.PIPE)
     return p.stdout.read()
 
-def dumpSvgAsBase64PngUrl(input, width, height):
-    dumpSvgPng = "dump-svg-as-base64-png.html"
+def svgAsBase64PngPath(input, width, height):
+    dumpSvgPng = "svg-as-base64-png.html"
     scriptPath = os.path.dirname(os.path.abspath(__file__))
     dumpSvgPngPath = scriptPath + "/" + dumpSvgPng
     if (not os.path.exists(dumpSvgPngPath)):
@@ -71,7 +71,7 @@ def dumpSvgAsBase64PngUrl(input, width, height):
     return "file://" + dumpSvgPngPath + "?" + size + url
 
 def svgAsPng(contentShell, inputSvgPath, flags, width, height):
-    inputSvgPath = dumpSvgAsBase64PngUrl(inputSvgPath, width, height)
+    inputSvgPath = svgAsBase64PngPath(inputSvgPath, width, height)
 
     rawResult = runContentShell(contentShell, inputSvgPath, flags)
 
@@ -86,11 +86,11 @@ def svgAsPng(contentShell, inputSvgPath, flags, width, height):
 
 def htmlAsPng(contentShell, inputHtmlPath, flags, width, height):
     # Use a special flag for controlling the window size.
-    SIZE_FLAG = "content-shell-host-window-size"
+    SIZE_FLAG = "--content-shell-host-window-size"
     width = args.width if args.width else 800
     height = args.height if args.height else 600
     if (SIZE_FLAG not in flags):
-        flags = flags + " --" + SIZE_FLAG + "=" + str(width) + "x" + str(height)
+        flags = flags + " " + SIZE_FLAG + "=" + str(width) + "x" + str(height)
 
     # Pixel results are enabled with the pixel-test "flag" after the input.
     # The single quote is a separator (see: layout_test_browser_main.cc).
