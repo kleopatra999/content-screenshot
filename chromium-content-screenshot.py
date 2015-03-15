@@ -9,7 +9,6 @@ import argparse
 import platform
 import subprocess
 import os
-import zipfile
 
 def prebuiltContentShellBinary(system, rev, binary):
     binaryRoot = "binaries" + "/" + rev + "." + system
@@ -26,12 +25,12 @@ def contentShellBinary(contentShell):
     if (contentShell and os.path.exists(contentShell)):
         return contentShell
     system = platform.system()
-    if (system == 'Darwin'):
+    if (system == "Darwin"):
         return prebuiltContentShellBinary("mac", "72cff265974701c8e6453e8b47a91d03053ea140", "Content Shell.app/Contents/MacOS/Content Shell")
-    elif (system == 'Linux'):
-        if (platform.architecture()[0] == '64bit'):
+    elif (system == "Linux"):
+        if (platform.architecture()[0] == "64bit"):
             return prebuiltContentShellBinary("linux64", "72cff265974701c8e6453e8b47a91d03053ea140", "content_shell")
-    #elif (system == 'Windows'):
+    #elif (system == "Windows"):
     #    TODO: Build this.
     raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --contentShell")
 
@@ -46,7 +45,8 @@ def dumpPng(contentShell, input, output, flags):
                           input + "'--pixel-test"
                          ],
                          shell = False,
-                         stdout = subprocess.PIPE)
+                         stdout = subprocess.PIPE,
+                         stderr = subprocess.PIPE)
     result = p.stdout.read()
     PNG_START = b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"
     PNG_END = b"\x49\x45\x4E\x44\xAE\x42\x60\x82"
@@ -55,12 +55,12 @@ def dumpPng(contentShell, input, output, flags):
         end = result.rindex(PNG_END) + 8
     except ValueError:
         raise Exception("Content shell did not output a valid png")
-    with open(output, 'wb') as outputFile:
+    with open(output, "wb") as outputFile:
         outputFile.write(result[start:end])
         print "Done"
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='chromium-content-screenshot: command line tool for converting html/svg to png')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="chromium-content-screenshot: command line tool for converting html/svg to png")
     parser.add_argument("input", help="input (html file, svg file, or url")
     parser.add_argument("output", help="output png result file")
     parser.add_argument("--contentShell", help="content shell binary")
@@ -69,9 +69,7 @@ if __name__ == '__main__':
     parser.add_argument("--height", help="height of rendering (px)", type=int)
     args = parser.parse_args()
 
-    flags = ""
-    if (args.flags):
-        flags = args.flags
+    flags = args.flags if args.flags else ""
 
     width = args.width if args.width else 800
     height = args.height if args.height else 600
