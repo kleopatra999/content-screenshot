@@ -36,11 +36,11 @@ def contentShellBinary(contentShell):
     #    TODO: Build this.
     raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --content-shell")
 
-def svgAutosizeUrl(input, width, height):
-    svgContainer = "svgContainer.html"
-    svgContainerPath = os.path.dirname(os.path.abspath(__file__)) + "/" + svgContainer
-    if (not os.path.exists(svgContainerPath)):
-        raise Exception("svgContainer.html not found")
+def dumpSvgAsBase64PngUrl(input, width, height):
+    dumpSvgPng = "dump-svg-as-base64-png.html"
+    dumpSvgPngPath = os.path.dirname(os.path.abspath(__file__)) + "/" + dumpSvgPng
+    if (not os.path.exists(dumpSvgPngPath)):
+        raise Exception(dumpSvgPngPath + " was not found")
     if (os.path.exists(input)):
         input = "file://" + os.getcwd() + "/" + input
     size = ""
@@ -54,7 +54,7 @@ def svgAutosizeUrl(input, width, height):
     if (len(size) > 0):
         url = "&"
     url = url + "url=" + urllib.quote(input)
-    return "file://" + svgContainerPath + "?" + size + url
+    return "file://" + dumpSvgPngPath + "?" + size + url
 
 def extractImage(output, svgMode):
     if (svgMode):
@@ -78,7 +78,7 @@ def extractImage(output, svgMode):
 
 def dumpPng(contentShell, input, output, flags, width, height, svgMode):
     if (svgMode):
-        input = svgAutosizeUrl(input, width, height)
+        input = dumpSvgAsBase64PngUrl(input, width, height)
     else:
         # Use a special flag for controlling the window size.
         SIZE_FLAG = "content-shell-host-window-size"
