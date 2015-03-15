@@ -20,7 +20,7 @@ def prebuiltContentShellBinary(system, rev, binary):
         if (os.path.exists(zipPath)):
             subprocess.call(["unzip", zipPath, "-d", binaryRoot], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if (not os.path.exists(binaryPath)):
-        raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --contentShell")
+        raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --content-shell")
     return binaryPath
 
 def contentShellBinary(contentShell):
@@ -34,16 +34,27 @@ def contentShellBinary(contentShell):
             return prebuiltContentShellBinary("linux64", "72cff265974701c8e6453e8b47a91d03053ea140", "content_shell")
     #elif (system == "Windows"):
     #    TODO: Build this.
-    raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --contentShell")
+    raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --content-shell")
 
-def svgAutosizeUrl(input):
+def svgAutosizeUrl(input, width, height):
     svgContainer = "svgContainer.html"
     svgContainerPath = os.path.dirname(os.path.abspath(__file__)) + "/" + svgContainer
     if (not os.path.exists(svgContainerPath)):
         raise Exception("svgContainer.html not found")
     if (os.path.exists(input)):
         input = "file://" + os.getcwd() + "/" + input
-    return "file://" + svgContainerPath + "?" + urllib.quote(input)
+    size = ""
+    if (width):
+        size = size + "width=" + str(width)
+    if (height):
+        if (len(size) > 0):
+            size = size + "&"
+        size = size + "height=" + str(height)
+    url = ""
+    if (len(size) > 0):
+        url = "&"
+    url = url + "url=" + urllib.quote(input)
+    return "file://" + svgContainerPath + "?" + size + url
 
 def extractImage(output, svgMode):
     if (svgMode):
@@ -55,7 +66,7 @@ def extractImage(output, svgMode):
             base64Data = output[start:end]
             return base64.decodestring(base64Data)
         except ValueError:
-            pass
+            raise Exception("Content shell did not output a valid svg png")
     PNG_START = b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"
     PNG_END = b"\x49\x45\x4E\x44\xAE\x42\x60\x82"
     try:
@@ -65,12 +76,19 @@ def extractImage(output, svgMode):
         raise Exception("Content shell did not output a valid png")
     return output[start:end]
 
-def dumpPng(contentShell, input, output, flags, svgMode):
+def dumpPng(contentShell, input, output, flags, width, height, svgMode):
     if (svgMode):
-        input = svgAutosizeUrl(input)
+        input = svgAutosizeUrl(input, width, height)
     else:
-        # The single quote is a separator for dumping pixel results.
-        # See: layout_test_browser_main.cc
+        # Use a special flag for controlling the window size.
+        SIZE_FLAG = "content-shell-host-window-size"
+        width = args.width if args.width else 800
+        height = args.height if args.height else 600
+        if (SIZE_FLAG not in flags):
+            flags = flags + " --" + SIZE_FLAG + "=" + str(width) + "x" + str(height)
+
+        # Pixel results are enabled with the pixel-test "flag" after the input.
+        # The single quote is a separator (see: layout_test_browser_main.cc).
         input = input + "'--pixel-test"
 
     p = subprocess.Popen([contentShell,
@@ -93,22 +111,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="chromium-content-screenshot: command line tool for converting html/svg to png")
     parser.add_argument("input", help="input (html file, svg file, or url")
     parser.add_argument("output", help="output png result file")
-    parser.add_argument("--contentShell", help="content shell binary")
+    parser.add_argument("--content-shell", dest="contentShell", help="content shell binary")
     parser.add_argument("--flags", help="additional flags to pass to content shell")
     parser.add_argument("--width", help="width of rendering (px)", type=int)
     parser.add_argument("--height", help="height of rendering (px)", type=int)
-    parser.add_argument("--autosizeSvg", dest="autosizeSvg", action="store_true", help="stretch svg files to fit the content window")
-    parser.add_argument("--no-autosizeSvg", dest="autosizeSvg", action="store_false", help="do not stretch svg files to fit the content window")
-    parser.set_defaults(autosizeSvg=True)
+    parser.add_argument("--no-svg-mode", dest="noSvgMode", help="disable special handling of SVG files")
     args = parser.parse_args()
 
     flags = args.flags if args.flags else ""
-
-    width = args.width if args.width else 800
-    height = args.height if args.height else 600
-    if ("content-shell-host-window-size" not in flags):
-        size = "--content-shell-host-window-size=" + str(width) + "x" + str(height)
-        flags = flags + " " + size
-
-    svgMode = args.input.endswith("svg") and args.autosizeSvg
-    dumpPng(contentShellBinary(args.contentShell), args.input, args.output, flags, svgMode)
+    svgMode = args.input.endswith("svg") and not args.noSvgMode
+    binary = contentShellBinary(args.contentShell)
+    dumpPng(binary, args.input, args.output, flags, args.width, args.height, svgMode)

@@ -8,29 +8,50 @@
     padding: 0;
     overflow: hidden;
 }
-#canvas {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-}
 </style>
-<img id="img">
 <canvas id="canvas"></canvas>
 <script>
-    var svg = location.search.split('?')[1];
+    var img = new Image();
     img.onload = dumpPngData;
-    if (svg)
-        img.src = unescape(svg);
+    var urlParam = getParameterByName('url');
+    if (urlParam)
+        img.src = unescape(urlParam);
 
     function dumpPngData() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        var widthParam = getParameterByName('width');
+        var heightParam = getParameterByName('height');
+        var width = img.naturalWidth;
+        var height = img.naturalHeight;
+        var ratio = width / height;
+
+        if (widthParam) {
+            width = widthParam;
+        } else if (heightParam) {
+            width = heightParam * ratio;
+        }
+
+        if (heightParam) {
+            height = heightParam;
+        } else if (widthParam) {
+            height = widthParam / ratio;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
         var context = canvas.getContext('2d');
-        context.drawImage(img, 0, 0, window.innerWidth, window.innerHeight);
+        context.drawImage(img, 0, 0, width, height);
         var dataURL = canvas.toDataURL();
         var pngData = dataURL.substr(dataURL.indexOf(',') + 1);
-        console.log("SvgPngBase64Encoded->" + pngData + "<-SvgPngBase64Encoded")
+        var SVG_PNG_START = 'SvgPngBase64Encoded->';
+        var SVG_PNG_END = '<-SvgPngBase64Encoded';
+        console.log(SVG_PNG_START + pngData + SVG_PNG_END);
+    }
+
+    // Snippet by jolly.exe, from http://stackoverflow.com/a/901144.
+    function getParameterByName(name) {
+        name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+        var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+            results = regex.exec(location.search);
+        return results === null ? null : decodeURIComponent(results[1].replace(/\+/g, " "));
     }
 </script>
