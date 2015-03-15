@@ -15,8 +15,8 @@ import base64
 def htmlAsPng(contentShell, inputHtmlPath, flags, width, height):
     # Use a special flag for controlling the window size.
     SIZE_FLAG = "--content-shell-host-window-size"
-    width = args.width if args.width else 800
-    height = args.height if args.height else 600
+    width = width if width else 800
+    height = height if height else 600
     if (SIZE_FLAG not in flags):
         flags = flags + " " + SIZE_FLAG + "=" + str(width) + "x" + str(height)
 
@@ -31,7 +31,7 @@ def htmlAsPng(contentShell, inputHtmlPath, flags, width, height):
     try:
         start = rawResult.index(PNG_START)
         end = rawResult.rindex(PNG_END) + 8
-    except ValueError:
+    except:
         raise Exception("Content shell did not output a valid png")
     return rawResult[start:end]
 
@@ -69,7 +69,7 @@ def svgAsPng(contentShell, inputSvgPath, flags, width, height):
         start = rawResult.index(SVG_PNG_START) + len(SVG_PNG_START)
         end = rawResult.index(SVG_PNG_END)
         return base64.decodestring(rawResult[start:end])
-    except ValueError:
+    except:
         raise Exception("Content shell did not output a valid svg png")
 
 def unpackPrebuiltContentShellBinary(system, rev, binary):
@@ -98,16 +98,17 @@ def contentShellBinary(contentShell):
     raise Exception("Content shell not found. If you have a chromium checkout, you may specify your own content shell binary using --content-shell")
 
 def runContentShell(contentShell, inputPath, additionalFlags):
-    p = subprocess.Popen([contentShell,
-                          "--run-layout-test",
-                          "--enable-font-antialiasing",
-                          additionalFlags,
-                          inputPath
-                         ],
-                         shell = False,
-                         stdout = subprocess.PIPE,
-                         stderr = subprocess.PIPE)
-    return p.stdout.read()
+    command = [contentShell, "--run-layout-test",
+               "--enable-font-antialiasing", additionalFlags, inputPath]
+    try:
+        p = subprocess.Popen(command,
+                             shell = False,
+                             stdout = subprocess.PIPE,
+                             stderr = subprocess.PIPE)
+        return p.stdout.read()
+    except:
+        commandString = " ".join(str(c) for c in command) 
+        raise Exception("Failed to run content shell (" + commandString + ")")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="chromium-content-screenshot: command line tool for converting html/svg to png")
