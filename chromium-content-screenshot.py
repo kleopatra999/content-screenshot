@@ -9,6 +9,7 @@ import argparse
 import platform
 import subprocess
 import os
+import urllib
 
 def prebuiltContentShellBinary(system, rev, binary):
     binaryRoot = "binaries" + "/" + rev + "." + system
@@ -35,8 +36,6 @@ def contentShellBinary(contentShell):
     raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --contentShell")
 
 def dumpPng(contentShell, input, output, flags):
-    if (not os.path.exists(input)):
-        raise Exception("Input file not found")
     p = subprocess.Popen([contentShell,
                           "--run-layout-test",
                           "--enable-font-antialiasing",
@@ -48,6 +47,7 @@ def dumpPng(contentShell, input, output, flags):
                          stdout = subprocess.PIPE,
                          stderr = subprocess.PIPE)
     result = p.stdout.read()
+
     PNG_START = b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"
     PNG_END = b"\x49\x45\x4E\x44\xAE\x42\x60\x82"
     try:
@@ -67,6 +67,9 @@ if __name__ == "__main__":
     parser.add_argument("--flags", help="additional flags to pass to content shell")
     parser.add_argument("--width", help="width of rendering (px)", type=int)
     parser.add_argument("--height", help="height of rendering (px)", type=int)
+    parser.add_argument("--autosizeSvg", dest="autosizeSvg", action="store_true", help="stretch svg files to fit the content window")
+    parser.add_argument("--no-autosizeSvg", dest="autosizeSvg", action="store_false", help="do not stretch svg files to fit the content window")
+    parser.set_defaults(autosizeSvg=True)
     args = parser.parse_args()
 
     flags = args.flags if args.flags else ""
@@ -77,4 +80,12 @@ if __name__ == "__main__":
         size = "--content-shell-host-window-size=" + str(width) + "x" + str(height)
         flags = flags + " " + size
 
-    dumpPng(contentShellBinary(args.contentShell), args.input, args.output, flags)
+    input = args.input
+    if (args.autosizeSvg and input.endswith("svg")):
+        svgContainer = "svgContainer.html"
+        svgContainerPath = os.path.dirname(os.path.abspath(__file__)) + "/" + svgContainer
+        if (not os.path.exists(svgContainerPath)):
+            raise Exception("svgContainer.html not found")
+        input = "file://" + svgContainerPath + "?" + urllib.quote(input)
+
+    dumpPng(contentShellBinary(args.contentShell), input, args.output, flags)
