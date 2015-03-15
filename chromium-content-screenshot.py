@@ -13,7 +13,8 @@ import urllib
 import base64
 
 def unpackPrebuiltContentShellBinary(system, rev, binary):
-    binaryRoot = os.path.dirname(os.path.abspath(__file__)) + "/bin/" + rev + "." + system
+    scriptPath = os.path.dirname(os.path.abspath(__file__))
+    binaryRoot = scriptPath + "/bin/" + rev + "." + system
     binaryPath = binaryRoot + "/" + binary
     zipPath = binaryRoot + ".zip"
     if (not os.path.exists(binaryPath)):
@@ -50,7 +51,8 @@ def runContentShell(contentShell, inputPath, additionalFlags):
 
 def dumpSvgAsBase64PngUrl(input, width, height):
     dumpSvgPng = "dump-svg-as-base64-png.html"
-    dumpSvgPngPath = os.path.dirname(os.path.abspath(__file__)) + "/" + dumpSvgPng
+    scriptPath = os.path.dirname(os.path.abspath(__file__))
+    dumpSvgPngPath = scriptPath + "/" + dumpSvgPng
     if (not os.path.exists(dumpSvgPngPath)):
         raise Exception(dumpSvgPngPath + " was not found")
     if (os.path.exists(input)):
@@ -68,7 +70,7 @@ def dumpSvgAsBase64PngUrl(input, width, height):
     url = url + "url=" + urllib.quote(input)
     return "file://" + dumpSvgPngPath + "?" + size + url
 
-def dumpSvgAsPng(contentShell, inputSvgPath, outputPngPath, flags, width, height):
+def svgAsPng(contentShell, inputSvgPath, flags, width, height):
     inputSvgPath = dumpSvgAsBase64PngUrl(inputSvgPath, width, height)
 
     rawResult = runContentShell(contentShell, inputSvgPath, flags)
@@ -78,15 +80,11 @@ def dumpSvgAsPng(contentShell, inputSvgPath, outputPngPath, flags, width, height
     try:
         start = rawResult.index(SVG_PNG_START) + len(SVG_PNG_START)
         end = rawResult.index(SVG_PNG_END)
-        image = base64.decodestring(rawResult[start:end])
+        return base64.decodestring(rawResult[start:end])
     except ValueError:
         raise Exception("Content shell did not output a valid svg png")
 
-    with open(outputPngPath, "wb") as outputFile:
-        outputFile.write(image)
-        print "Done"
-
-def dumpHtmlAsPng(contentShell, inputHtmlPath, outputPngPath, flags, width, height):
+def htmlAsPng(contentShell, inputHtmlPath, flags, width, height):
     # Use a special flag for controlling the window size.
     SIZE_FLAG = "content-shell-host-window-size"
     width = args.width if args.width else 800
@@ -107,11 +105,7 @@ def dumpHtmlAsPng(contentShell, inputHtmlPath, outputPngPath, flags, width, heig
         end = rawResult.rindex(PNG_END) + 8
     except ValueError:
         raise Exception("Content shell did not output a valid png")
-    image = rawResult[start:end]
-
-    with open(outputPngPath, "wb") as outputFile:
-        outputFile.write(image)
-        print "Done"
+    return rawResult[start:end]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="chromium-content-screenshot: command line tool for converting html/svg to png")
@@ -128,7 +122,11 @@ if __name__ == "__main__":
     svgMode = args.input.endswith("svg") and not args.noSvgMode
     binary = contentShellBinary(args.contentShell)
 
-    if (not svgMode):
-        dumpHtmlAsPng(binary, args.input, args.output, flags, args.width, args.height)
+    if (svgMode):
+        image = svgAsPng(binary, args.input, flags, args.width, args.height)
     else:
-        dumpSvgAsPng(binary, args.input, args.output, flags, args.width, args.height)
+        image = htmlAsPng(binary, args.input, flags, args.width, args.height)
+
+    with open(args.output, "wb") as outputFile:
+        outputFile.write(image)
+        print "Done"
