@@ -12,7 +12,7 @@ import os
 import urllib
 import base64
 
-def prebuiltContentShellBinary(system, rev, binary):
+def unpackPrebuiltContentShellBinary(system, rev, binary):
     binaryRoot = os.path.dirname(os.path.abspath(__file__)) + "/binaries/" + rev + "." + system
     binaryPath = binaryRoot + "/" + binary
     zipPath = binaryRoot + ".zip"
@@ -20,7 +20,7 @@ def prebuiltContentShellBinary(system, rev, binary):
         if (os.path.exists(zipPath)):
             subprocess.call(["unzip", zipPath, "-d", binaryRoot], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if (not os.path.exists(binaryPath)):
-        raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --content-shell")
+        raise Exception("Failed to extract prebuilt content shell binary")
     return binaryPath
 
 def contentShellBinary(contentShell):
@@ -28,13 +28,25 @@ def contentShellBinary(contentShell):
         return contentShell
     system = platform.system()
     if (system == "Darwin"):
-        return prebuiltContentShellBinary("mac", "72cff265974701c8e6453e8b47a91d03053ea140", "Content Shell.app/Contents/MacOS/Content Shell")
+        return unpackPrebuiltContentShellBinary("mac", "72cff265974701c8e6453e8b47a91d03053ea140", "Content Shell.app/Contents/MacOS/Content Shell")
     elif (system == "Linux"):
         if (platform.architecture()[0] == "64bit"):
-            return prebuiltContentShellBinary("linux64", "72cff265974701c8e6453e8b47a91d03053ea140", "content_shell")
+            return unpackPrebuiltContentShellBinary("linux64", "72cff265974701c8e6453e8b47a91d03053ea140", "content_shell")
     #elif (system == "Windows"):
     #    TODO: Build this.
-    raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --content-shell")
+    raise Exception("Content shell not found. If you have a chromium checkout, you may specify your own content shell binary using --content-shell")
+
+def runContentShell(contentShell, inputPath, additionalFlags):
+    p = subprocess.Popen([contentShell,
+                          "--run-layout-test",
+                          "--enable-font-antialiasing",
+                          additionalFlags,
+                          inputPath
+                         ],
+                         shell = False,
+                         stdout = subprocess.PIPE,
+                         stderr = subprocess.PIPE)
+    return p.stdout.read()
 
 def dumpSvgAsBase64PngUrl(input, width, height):
     dumpSvgPng = "dump-svg-as-base64-png.html"
@@ -56,54 +68,48 @@ def dumpSvgAsBase64PngUrl(input, width, height):
     url = url + "url=" + urllib.quote(input)
     return "file://" + dumpSvgPngPath + "?" + size + url
 
-def extractImage(output, svgMode):
-    if (svgMode):
-        SVG_PNG_START = "SvgPngBase64Encoded->"
-        SVG_PNG_END = "<-SvgPngBase64Encoded"
-        try:
-            start = output.index(SVG_PNG_START) + len(SVG_PNG_START)
-            end = output.index(SVG_PNG_END)
-            base64Data = output[start:end]
-            return base64.decodestring(base64Data)
-        except ValueError:
-            raise Exception("Content shell did not output a valid svg png")
+def dumpSvgAsPng(contentShell, inputSvgPath, outputPngPath, flags, width, height):
+    inputSvgPath = dumpSvgAsBase64PngUrl(inputSvgPath, width, height)
+
+    rawResult = runContentShell(contentShell, inputSvgPath, flags)
+
+    SVG_PNG_START = "SvgPngBase64Encoded->"
+    SVG_PNG_END = "<-SvgPngBase64Encoded"
+    try:
+        start = rawResult.index(SVG_PNG_START) + len(SVG_PNG_START)
+        end = rawResult.index(SVG_PNG_END)
+        image = base64.decodestring(rawResult[start:end])
+    except ValueError:
+        raise Exception("Content shell did not output a valid svg png")
+
+    with open(outputPngPath, "wb") as outputFile:
+        outputFile.write(image)
+        print "Done"
+
+def dumpHtmlAsPng(contentShell, inputHtmlPath, outputPngPath, flags, width, height):
+    # Use a special flag for controlling the window size.
+    SIZE_FLAG = "content-shell-host-window-size"
+    width = args.width if args.width else 800
+    height = args.height if args.height else 600
+    if (SIZE_FLAG not in flags):
+        flags = flags + " --" + SIZE_FLAG + "=" + str(width) + "x" + str(height)
+
+    # Pixel results are enabled with the pixel-test "flag" after the input.
+    # The single quote is a separator (see: layout_test_browser_main.cc).
+    inputHtmlPath = inputHtmlPath + "'--pixel-test"
+
+    rawResult = runContentShell(contentShell, inputHtmlPath, flags)
+
     PNG_START = b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"
     PNG_END = b"\x49\x45\x4E\x44\xAE\x42\x60\x82"
     try:
-        start = output.index(PNG_START)
-        end = output.rindex(PNG_END) + 8
+        start = rawResult.index(PNG_START)
+        end = rawResult.rindex(PNG_END) + 8
     except ValueError:
         raise Exception("Content shell did not output a valid png")
-    return output[start:end]
+    image = rawResult[start:end]
 
-def dumpPng(contentShell, input, output, flags, width, height, svgMode):
-    if (svgMode):
-        input = dumpSvgAsBase64PngUrl(input, width, height)
-    else:
-        # Use a special flag for controlling the window size.
-        SIZE_FLAG = "content-shell-host-window-size"
-        width = args.width if args.width else 800
-        height = args.height if args.height else 600
-        if (SIZE_FLAG not in flags):
-            flags = flags + " --" + SIZE_FLAG + "=" + str(width) + "x" + str(height)
-
-        # Pixel results are enabled with the pixel-test "flag" after the input.
-        # The single quote is a separator (see: layout_test_browser_main.cc).
-        input = input + "'--pixel-test"
-
-    p = subprocess.Popen([contentShell,
-                          "--run-layout-test",
-                          "--enable-font-antialiasing",
-                          flags,
-                          input
-                         ],
-                         shell = False,
-                         stdout = subprocess.PIPE,
-                         stderr = subprocess.PIPE)
-    result = p.stdout.read()
-
-    image = extractImage(result, svgMode)
-    with open(output, "wb") as outputFile:
+    with open(outputPngPath, "wb") as outputFile:
         outputFile.write(image)
         print "Done"
 
@@ -121,4 +127,8 @@ if __name__ == "__main__":
     flags = args.flags if args.flags else ""
     svgMode = args.input.endswith("svg") and not args.noSvgMode
     binary = contentShellBinary(args.contentShell)
-    dumpPng(binary, args.input, args.output, flags, args.width, args.height, svgMode)
+
+    if (not svgMode):
+        dumpHtmlAsPng(binary, args.input, args.output, flags, args.width, args.height)
+    else:
+        dumpSvgAsPng(binary, args.input, args.output, flags, args.width, args.height)
