@@ -10,9 +10,10 @@ import platform
 import subprocess
 import os
 import urllib
+import base64
 
 def prebuiltContentShellBinary(system, rev, binary):
-    binaryRoot = "binaries" + "/" + rev + "." + system
+    binaryRoot = os.path.dirname(os.path.abspath(__file__)) + "/binaries/" + rev + "." + system
     binaryPath = binaryRoot + "/" + binary
     zipPath = binaryRoot + ".zip"
     if (not os.path.exists(binaryPath)):
@@ -35,28 +36,57 @@ def contentShellBinary(contentShell):
     #    TODO: Build this.
     raise Exception("A prebuilt content shell binary was not found for your platform. If you have a chromium checkout, you may specify your own content shell binary using --contentShell")
 
-def dumpPng(contentShell, input, output, flags):
+def svgAutosizeUrl(input):
+    svgContainer = "svgContainer.html"
+    svgContainerPath = os.path.dirname(os.path.abspath(__file__)) + "/" + svgContainer
+    if (not os.path.exists(svgContainerPath)):
+        raise Exception("svgContainer.html not found")
+    if (os.path.exists(input)):
+        input = "file://" + os.getcwd() + "/" + input
+    return "file://" + svgContainerPath + "?" + urllib.quote(input)
+
+def extractImage(output, svgMode):
+    if (svgMode):
+        SVG_PNG_START = "SvgPngBase64Encoded->"
+        SVG_PNG_END = "<-SvgPngBase64Encoded"
+        try:
+            start = output.index(SVG_PNG_START) + len(SVG_PNG_START)
+            end = output.index(SVG_PNG_END)
+            base64Data = output[start:end]
+            return base64.decodestring(base64Data)
+        except ValueError:
+            pass
+    PNG_START = b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"
+    PNG_END = b"\x49\x45\x4E\x44\xAE\x42\x60\x82"
+    try:
+        start = output.index(PNG_START)
+        end = output.rindex(PNG_END) + 8
+    except ValueError:
+        raise Exception("Content shell did not output a valid png")
+    return output[start:end]
+
+def dumpPng(contentShell, input, output, flags, svgMode):
+    if (svgMode):
+        input = svgAutosizeUrl(input)
+    else:
+        # The single quote is a separator for dumping pixel results.
+        # See: layout_test_browser_main.cc
+        input = input + "'--pixel-test"
+
     p = subprocess.Popen([contentShell,
                           "--run-layout-test",
                           "--enable-font-antialiasing",
                           flags,
-                          # The single quote is a separator (see: layout_test_browser_main.cc)
-                          input + "'--pixel-test"
+                          input
                          ],
                          shell = False,
                          stdout = subprocess.PIPE,
                          stderr = subprocess.PIPE)
     result = p.stdout.read()
 
-    PNG_START = b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"
-    PNG_END = b"\x49\x45\x4E\x44\xAE\x42\x60\x82"
-    try:
-        start = result.index(PNG_START)
-        end = result.rindex(PNG_END) + 8
-    except ValueError:
-        raise Exception("Content shell did not output a valid png")
+    image = extractImage(result, svgMode)
     with open(output, "wb") as outputFile:
-        outputFile.write(result[start:end])
+        outputFile.write(image)
         print "Done"
 
 if __name__ == "__main__":
@@ -80,12 +110,5 @@ if __name__ == "__main__":
         size = "--content-shell-host-window-size=" + str(width) + "x" + str(height)
         flags = flags + " " + size
 
-    input = args.input
-    if (args.autosizeSvg and input.endswith("svg")):
-        svgContainer = "svgContainer.html"
-        svgContainerPath = os.path.dirname(os.path.abspath(__file__)) + "/" + svgContainer
-        if (not os.path.exists(svgContainerPath)):
-            raise Exception("svgContainer.html not found")
-        input = "file://" + svgContainerPath + "?" + urllib.quote(input)
-
-    dumpPng(contentShellBinary(args.contentShell), input, args.output, flags)
+    svgMode = args.input.endswith("svg") and args.autosizeSvg
+    dumpPng(contentShellBinary(args.contentShell), args.input, args.output, flags, svgMode)
