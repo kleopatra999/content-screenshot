@@ -13,7 +13,7 @@ import urllib
 import base64
 
 def unpackPrebuiltContentShellBinary(system, rev, binary):
-    binaryRoot = os.path.dirname(os.path.abspath(__file__)) + "/binaries/" + rev + "." + system
+    binaryRoot = os.path.dirname(os.path.abspath(__file__)) + "/bin/" + rev + "." + system
     binaryPath = binaryRoot + "/" + binary
     zipPath = binaryRoot + ".zip"
     if (not os.path.exists(binaryPath)):
