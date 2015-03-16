@@ -45,18 +45,13 @@ def svgAsBase64PngHelperPath(input, width, height):
         raise Exception(dumpSvgPngPath + " was not found")
     if (os.path.exists(input)):
         input = "file://" + os.getcwd() + "/" + input
-    size = ""
+    params = []
     if (width):
-        size = size + "width=" + str(width)
+        params.append("width=" + str(width))
     if (height):
-        if (len(size) > 0):
-            size = size + "&"
-        size = size + "height=" + str(height)
-    url = ""
-    if (len(size) > 0):
-        url = "&"
-    url = url + "url=" + urllib.quote(input)
-    return "file://" + dumpSvgPngPath + "?" + size + url
+        params.append("height=" + str(height))
+    params.append("url=" + urllib.quote(input))
+    return "file://" + dumpSvgPngPath + "?" + "&".join(params)
 
 def svgAsPng(contentShell, inputSvgPath, flags, width, height):
     inputSvgPath = svgAsBase64PngHelperPath(inputSvgPath, width, height)
@@ -77,10 +72,9 @@ def unpackPrebuiltContentShellBinary(system, rev, binary):
     binaryRoot = scriptPath + "/bin/" + rev + "." + system
     binaryPath = binaryRoot + "/" + binary
     zipPath = binaryRoot + ".zip"
-    if (not os.path.exists(binaryPath)):
-        if (os.path.exists(zipPath)):
-            out = subprocess.Popen(["unzip", zipPath, "-d", binaryRoot], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out.communicate()
+    if (not os.path.exists(binaryPath) and os.path.exists(zipPath)):
+        out = subprocess.Popen(["unzip", zipPath, "-d", binaryRoot], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out.communicate()
     if (not os.path.exists(binaryPath)):
         raise Exception("Failed to extract prebuilt content shell binary")
     return binaryPath
@@ -102,9 +96,7 @@ def runContentShell(contentShell, inputPath, additionalFlags):
     command = [contentShell, "--run-layout-test",
                "--enable-font-antialiasing", additionalFlags, inputPath]
     try:
-        p = subprocess.Popen(command,
-                             shell = False,
-                             stdout = subprocess.PIPE,
+        p = subprocess.Popen(command, shell = False, stdout = subprocess.PIPE,
                              stderr = subprocess.PIPE)
         stdout, stderr = p.communicate()
         return stdout
@@ -124,10 +116,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     flags = args.flags if args.flags else ""
-    svgMode = args.input.endswith("svg") and not args.noSvgMode
     binary = contentShellBinary(args.contentShell)
 
-    if (svgMode):
+    if (not args.noSvgMode and args.input.endswith("svg")):
         image = svgAsPng(binary, args.input, flags, args.width, args.height)
     else:
         image = htmlAsPng(binary, args.input, flags, args.width, args.height)
