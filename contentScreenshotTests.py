@@ -30,6 +30,11 @@ class TestSvgOutput(unittest.TestCase):
         expected = self.fileMd5("test/50x50greenCircle.png")
         self.assertEqual(self.imageMd5(image), expected)
 
+    def test_svgWithFractionalSize(self):
+        image = contentScreenshot.svgAsPng(self.contentShellBinary, "test/16ptBy100ptGreenSquare.svg", "", 200, None)
+        expected = self.fileMd5("test/200x1250GreenSquare.png")
+        self.assertEqual(self.imageMd5(image), expected)
+
     def test_htmlWidthAndHeight(self):
         image = contentScreenshot.htmlAsPng(self.contentShellBinary, "test/greenSquare.html", "", 100, 100)
         expected = self.fileMd5("test/100x100greenSquare.png")

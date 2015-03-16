@@ -18,32 +18,35 @@ If width or height are not specified, the image's natural ratio will be used.
     padding: 0;
     overflow: hidden;
 }
+img {
+    width: auto;
+    height: auto;
+}
 </style>
+<img id="img">
 <canvas id="canvas"></canvas>
 <script>
-    var img = new Image();
+    var img = document.getElementById('img');
     img.onload = dumpPngData;
     var urlParam = getParameterByName('url');
     if (urlParam)
         img.src = unescape(urlParam);
 
     function dumpPngData() {
-        var widthParam = getParameterByName('width');
-        var heightParam = getParameterByName('height');
-        var width = img.naturalWidth;
-        var height = img.naturalHeight;
-        var ratio = width / height;
+        var width = getParameterByName('width');
+        var height = getParameterByName('height');
 
-        if (widthParam) {
-            width = widthParam;
-        } else if (heightParam) {
-            width = heightParam * ratio;
-        }
-
-        if (heightParam) {
-            height = heightParam;
-        } else if (widthParam) {
-            height = widthParam / ratio;
+        if (width && height) {
+            // Everything is right in the world.
+        } else if (width) {
+            img.style.width = width + "px";
+            height = img.offsetHeight;
+        } else if (height) {
+            img.style.height = height + "px";
+            width = img.offsetWidth;
+        } else {
+            width = img.naturalWidth;
+            height = img.naturalHeight;
         }
 
         canvas.width = width;
