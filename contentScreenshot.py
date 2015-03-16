@@ -38,7 +38,7 @@ def htmlAsPng(contentShell, inputHtmlPath, flags, width, height):
 # Return the path to the svg-as-base64-png helper script which dumps a base64-
 # encoded png file to the console.
 def svgAsBase64PngHelperPath(input, width, height):
-    dumpSvgPng = "svg-as-base64-png.html"
+    dumpSvgPng = "bin/svg-as-base64-png.html"
     scriptPath = os.path.dirname(os.path.abspath(__file__))
     dumpSvgPngPath = scriptPath + "/" + dumpSvgPng
     if (not os.path.exists(dumpSvgPngPath)):
@@ -88,8 +88,6 @@ def contentShellBinary(contentShell):
     elif (system == "Linux"):
         if (platform.architecture()[0] == "64bit"):
             return unpackPrebuiltContentShellBinary("linux64", "72cff265974701c8e6453e8b47a91d03053ea140", "content_shell")
-    #elif (system == "Windows"):
-    #    TODO: Build this.
     raise Exception("Content shell not found. If you have a chromium checkout, you may specify your own content shell binary using --content-shell")
 
 def runContentShell(contentShell, inputPath, additionalFlags):
@@ -106,7 +104,7 @@ def runContentShell(contentShell, inputPath, additionalFlags):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="chromium-content-screenshot: command line tool for converting html/svg to png")
-    parser.add_argument("input", help="input (html file/url, or svg file/url")
+    parser.add_argument("input", help="input html file/url, or svg file/url")
     parser.add_argument("output", help="output png file")
     parser.add_argument("--content-shell", dest="contentShell", help="path to content shell binary")
     parser.add_argument("--flags", help="additional flags to pass to content shell")
