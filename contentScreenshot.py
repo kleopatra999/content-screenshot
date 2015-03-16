@@ -79,7 +79,8 @@ def unpackPrebuiltContentShellBinary(system, rev, binary):
     zipPath = binaryRoot + ".zip"
     if (not os.path.exists(binaryPath)):
         if (os.path.exists(zipPath)):
-            subprocess.call(["unzip", zipPath, "-d", binaryRoot], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out = subprocess.Popen(["unzip", zipPath, "-d", binaryRoot], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out.communicate()
     if (not os.path.exists(binaryPath)):
         raise Exception("Failed to extract prebuilt content shell binary")
     return binaryPath
@@ -105,7 +106,8 @@ def runContentShell(contentShell, inputPath, additionalFlags):
                              shell = False,
                              stdout = subprocess.PIPE,
                              stderr = subprocess.PIPE)
-        return p.stdout.read()
+        stdout, stderr = p.communicate()
+        return stdout
     except:
         commandString = " ".join(str(c) for c in command) 
         raise Exception("Failed to run content shell (" + commandString + ")")
